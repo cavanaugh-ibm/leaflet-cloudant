@@ -24,3 +24,10 @@ To remove a given layer
 ```javascript
 layer.sourceRemove("colleges");
 ```
+
+Make sure to load in the lodash library BEFORE this is included
+```html
+<!-- Lodash -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.min.js"></script>
+<script src="leaflet.cloudant.js"></script> 
+```
