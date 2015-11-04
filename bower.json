@@ -1,0 +1,24 @@
+{
+  "name": "leaflet-cloudant",
+  "version": "1.0.0",
+  "homepage": "https://github.com/cavanaugh-ibm/leaflet-cloudant",
+  "authors": [
+    "Joe Cavanaugh <jcavanaugh@us.ibm.com>"
+  ],
+  "description": "Cloudant GEO in Leaflet",
+  "main": "dist/leaflet.cloudant.js",
+  "keywords": [
+    "leaflet",
+    "ajax",
+    "jsonp",
+    "cloudant"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}

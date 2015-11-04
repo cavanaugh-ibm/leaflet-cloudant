@@ -1,0 +1,171 @@
+'use strict';
+var L = global.L || require('leaflet');
+var Promise = require('lie');
+var ajax = require('./ajax');
+var Set = require('Set');
+
+L.GeoJSON.Cloudant = L.GeoJSON.extend({
+  defaultAJAXparams: {
+    dataType: 'json',
+    callbackParam: 'callback',
+    local: false,
+    middleware: function (f) {
+      return f;
+    }
+  },
+
+  initialize: function (url, options) {
+    this.urls = new Set();
+
+    if (url) {
+      if (typeof url === 'string') {
+        this.urls.add(url);
+      } else if (typeof url.pop === 'function') {
+        this.urls.addAll(url);
+      } else {
+        options = url;
+        url = undefined;
+      }
+    }
+    var ajaxParams = L.Util.extend({}, this.defaultAJAXparams);
+
+    for (var i in options) {
+      if (this.defaultAJAXparams.hasOwnProperty(i)) {
+        ajaxParams[i] = options[i];
+      }
+    }
+
+    this.ajaxParams = ajaxParams;
+    this._layers = {};
+    L.Util.setOptions(this, options);
+    this.on('data:loaded', function () {
+      if (this.filter) {
+        this.refilter(this.filter);
+      }
+    }, this);
+    var self = this;
+    if (this.urls.size() > 0) {
+      new Promise(function (yes) {
+        yes();
+      }).then(function () {
+        self.addUrl();
+      });
+    }
+  },
+
+  clearLayers: function () {
+    this.urls = new Set();
+    L.GeoJSON.prototype.clearLayers.call(this);
+    return this;
+  },
+
+  addUrl: function (url) {
+    var self = this;
+    if (url) {
+      if (typeof url === 'string') {
+        self.urls.add(url);
+      } else if (typeof url.pop === 'function') {
+        self.urls.addAll(url);
+      }
+    }
+
+    var loading = self.urls.size();
+    var done = 0;
+    self.fire('data:loading');
+
+    console.log('Arrays = %o', self.urls.toArray());
+
+    self.urls.toArray().forEach(function (url) {
+      if (self.ajaxParams.dataType.toLowerCase() === 'json') {
+        ajax(url, self.ajaxParams).then(function (d) {
+          var data = self.ajaxParams.middleware(d);
+          self.addData(data);
+          self.fire('data:progress', data);
+        }, function (err) {
+          self.fire('data:progress', {
+            error: err
+          });
+        });
+      } else if (self.ajaxParams.dataType.toLowerCase() === 'jsonp') {
+        L.Util.jsonp(url, self.ajaxParams).then(function (d) {
+          var data = self.ajaxParams.middleware(d);
+          self.addData(data);
+          self.fire('data:progress', data);
+        }, function (err) {
+          self.fire('data:progress', {
+            error: err
+          });
+        });
+      }
+    });
+    self.on('data:progress', function () {
+      if (++done === loading) {
+        self.fire('data:loaded');
+      }
+    });
+  },
+
+  removeUrl: function (url) {
+    //
+    // This is working so far - in that adds work using the SET interface.
+    // TODO
+    //    1 - When adding data
+    //        - I think we want to keep a map of NAME//URL so that we can change the url for a layer (Maybe remove the SET????)
+    //            - When the url changes we need to add in the new records and then only remove the records that are not readded???
+    //        - Keep a map and only add unique records - so we will need a key to use as the unique key
+    //        - We need to keep track of which URL it came from
+    //    2 - When removing a layer by name, 
+
+    var self = this;
+    if (url) {
+      if (typeof url === 'string') {
+        self.urls.remove(url);
+      } else if (typeof url.pop === 'function') {
+        for (var i = 0; i < url.length; i++) {
+          self.urls.remove(url[i]);
+        }
+      }
+    }
+
+  },
+
+  refresh: function (url) {
+    url = url || this.urls.toArray();
+    this.clearLayers();
+    this.addUrl(url);
+  },
+
+  refilter: function (func) {
+    if (typeof func !== 'function') {
+      this.filter = false;
+      this.eachLayer(function (a) {
+        a.setStyle({
+          stroke: true,
+          clickable: true
+        });
+      });
+    } else {
+      this.filter = func;
+      this.eachLayer(function (a) {
+        if (func(a.feature)) {
+          a.setStyle({
+            stroke: true,
+            clickable: true
+          });
+        } else {
+          a.setStyle({
+            stroke: false,
+            clickable: false
+          });
+        }
+      });
+    }
+  }
+});
+
+L.Util.Promise = Promise;
+L.Util.ajax = ajax;
+L.Util.jsonp = require('./jsonp');
+L.geoJson.ajax = function (geojson, options) {
+  return new L.GeoJSON.AJAX(geojson, options);
+};
